@@ -27,7 +27,7 @@ def calculate_reprojection_error(objpoints, imgpoints, rvec, tvec, camera_matrix
     return error
 
 # JSON 文件中的标定参数
-json_file = "camera_extrinsics.json"
+json_file = "intrinsic.json"
 camera_matrix, dist_coeffs = load_calibration_data(json_file)
 print("成功加载标定参数：")
 print("相机内参矩阵:\n", camera_matrix)

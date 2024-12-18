@@ -15,24 +15,24 @@ def load_calibration_from_json(calibration_file):
     try:
         with open(calibration_file, "r") as f:
             data = json.load(f)
-            ret = data["ret"]
-            mtx = np.array(data["mtx"])
-            dist = np.array(data["dist"])
-        return ret, mtx, dist
+            # ret = data["ret"]
+            mtx = np.array(data["camera_matrix"])
+            dist = np.array(data["dist_coeffs"])
+        return mtx, dist
     except Exception as e:
         print(f"Error loading calibration file: {e}")
         return None
 
 def main():
-    calibration_file = "camera_calibration.json"  # 校准参数的 JSON 文件
-    ret, mtx, dist = load_calibration_from_json(calibration_file)
+    calibration_file = "intrinsic.json"  # 校准内参的 JSON 文件
+    mtx, dist = load_calibration_from_json(calibration_file)
 
     if mtx is None or dist is None:
         print("Failed to load calibration data.")
         return
 
     # 初始化摄像头
-    cap = cv.VideoCapture(2)
+    cap = cv.VideoCapture(2)  # choose the right(true) camera
     if not cap.isOpened():
         print("Error: Could not open the camera.")
         return

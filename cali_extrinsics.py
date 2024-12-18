@@ -121,7 +121,7 @@ print(f"\n误差最小的外参矩阵为图像 {min_error_idx + 1}，误差为 {
 # 保存结果
 camera_data = {
     "camera_matrix": camera_matrix.tolist(),
-    "dist_coeffs": dist_coeffs.flatten().tolist(),
+    "dist_coeffs": dist_coeffs.tolist(),
     "extrinsics": extrinsics,
     "reprojection_errors": errors,
     "best_extrinsic": extrinsics[min_error_idx],
