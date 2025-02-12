@@ -5,7 +5,7 @@ import json
 import os
 
 # 配置参数
-chessboard_size = (9 - 1, 7 - 1)  # 棋盘格规格：8 列 6 行 交点
+chessboard_size = (6,8)  # 棋盘格规格：8 列 6 行 交点
 
 
 # Termination criteria for corner refinement

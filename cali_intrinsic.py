@@ -8,7 +8,8 @@ import json
 # Define the number of inner corners (rows and columns) in the chessboard
 chessboard_rows = 6  # Number of inner corners in rows
 chessboard_cols = 8  # Number of inner corners in columns
-chessboard_length_mm = 39
+chessboard_length_mm = 60
+images_path = "./calibration_images2/*.jpg"
 
 # Termination criteria for corner refinement
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -23,7 +24,7 @@ objpoints = []  # 3d point in real world space
 imgpoints = []  # 2d points in image plane
 
 # Load all images with .jpg extension
-images = glob.glob('calibration_images2/*.jpg')
+images = glob.glob(images_path)
 
 for fname in images:
     img = cv.imread(fname)

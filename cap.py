@@ -2,13 +2,21 @@ import cv2
 import datetime
 import os
 
-
 # 打开摄像头
 cap = cv2.VideoCapture(0)
+
+# 设置摄像头分辨率为 1920x1080 (1080p)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 if not cap.isOpened():
     print("无法打开摄像头！")
     exit()
+
+# 验证设置是否成功
+width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+print(f"摄像头分辨率设置为: {int(width)}x{int(height)}")
 
 print("按 'Q' 键拍摄图片并保存，按 'Esc' 键退出程序。")
 

@@ -4,51 +4,67 @@ import glob
 import json
 import os
 
-# 配置参数
-chessboard_size = (9 - 1, 7 - 1)  # 棋盘格规格：8 列 6 行 交点
+# Configuration Parameters
+chessboard_size = (8, 6)  # Chessboard pattern size: 8 columns, 6 rows (inner corners)
+images_path = "./calibration_images/*.jpg"
+intrinsic_path = "./intrinsic.json"
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-# 存储物理坐标和像素坐标
-objpoints = []  # 世界坐标系下的物理坐标
-imgpoints = []  # 图像坐标系下的像素坐标
+# Storage for 3D and 2D points
+objpoints = []  # 3D points in the world coordinate system
+imgpoints = []  # 2D points in the image plane
 
-# 读取标定结果 JSON 文件
 def load_calibration_data(json_file):
+    """
+    Loads camera intrinsic parameters from a JSON file.
+    
+    :param json_file: Path to the JSON file containing intrinsic parameters.
+    :return: Tuple of camera matrix and distortion coefficients.
+    """
     with open(json_file, "r") as f:
         calibration_data = json.load(f)
     mtx = np.array(calibration_data["camera_matrix"], dtype=np.float32)
     dist = np.array(calibration_data["dist_coeffs"], dtype=np.float32)
     return mtx, dist
 
-# 计算投影误差
 def calculate_reprojection_error(objpoints, imgpoints, rvec, tvec, camera_matrix, dist_coeffs):
+    """
+    Calculates the average reprojection error for given extrinsic parameters.
+    
+    :param objpoints: Nx3 array of 3D object points.
+    :param imgpoints: Nx2 array of 2D image points.
+    :param rvec: Rotation vector.
+    :param tvec: Translation vector.
+    :param camera_matrix: Camera matrix.
+    :param dist_coeffs: Distortion coefficients.
+    :return: Average reprojection error in pixels.
+    """
     projected_points, _ = cv2.projectPoints(objpoints, rvec, tvec, camera_matrix, dist_coeffs)
     error = cv2.norm(imgpoints, projected_points, cv2.NORM_L2) / len(projected_points)
     return error
 
-# JSON 文件中的标定参数
-json_file = "intrinsic.json"
-camera_matrix, dist_coeffs = load_calibration_data(json_file)
-print("成功加载标定参数：")
-print("相机内参矩阵:\n", camera_matrix)
-print("畸变参数:\n", dist_coeffs)
+# Load Intrinsic Parameters from JSON
+camera_matrix, dist_coeffs = load_calibration_data(intrinsic_path)
+print("Successfully loaded calibration parameters:")
+print("Camera Matrix:\n", camera_matrix)
+print("Distortion Coefficients:\n", dist_coeffs)
 
-# 加载标定图像和对应的物理坐标文件
-image_files = glob.glob("calibration_images/*.jpg")
+# Load Calibration Images and Corresponding 3D Object Points
+image_files = glob.glob(images_path)
 if not image_files:
-    print("未找到标定图像，请检查 'calibration_images/' 文件夹！")
+    print("No calibration images found. Please check the 'calibration_images/' directory!")
     exit()
 
-# 检测棋盘格角点
-for image_file in image_files:
-    base_name = os.path.basename(image_file).replace('.jpg', '')
+# Detect Chessboard Corners
+for idx, image_file in enumerate(image_files):
+    base_name = os.path.basename(image_file).split('.')[0]  # Remove extension
     mocap_file = os.path.join("mocap_points", f"{base_name}.txt")
 
     if not os.path.exists(mocap_file):
-        print(f"未找到物理坐标文件：{mocap_file}，跳过该图像！")
+        print(f"Missing physical coordinates file: {mocap_file}. Skipping this image!")
         continue
 
-    # 读取物理坐标
+    # Read 3D Object Points
     objp = []
     with open(mocap_file, 'r') as f:
         for line in f:
@@ -59,96 +75,104 @@ for image_file in image_files:
             objp.append([x, y, z])
     objp = np.array(objp, dtype=np.float32)
 
-    # 加载图像并去畸变
+    expected_points = chessboard_size[0] * chessboard_size[1]
+    if objp.shape[0] != expected_points:
+        print(f"Incorrect number of 3D points in {mocap_file}. Expected {expected_points}, got {objp.shape[0]}. Skipping!")
+        continue
+
+    # Sort 3D points into row-major order
+    objpoints.append(objp)
+
+    # Load image and detect chessboard corners on the original image
     img = cv2.imread(image_file)
-    h, w = img.shape[:2]
-    newcameramtx, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, dist_coeffs, (w, h), 1, (w, h))
-    undistorted_img = cv2.undistort(img, camera_matrix, dist_coeffs, None, newcameramtx)
+    if img is None:
+        print(f"Failed to load image: {image_file}. Skipping!")
+        objpoints.pop()  # Remove last objp as it's not matched
+        continue
 
-    # 裁剪图像
-    x, y, w, h = roi
-    undistorted_img = undistorted_img[y:y+h, x:x+w]
-
-    # 转换为灰度图并检测棋盘格角点
-    gray = cv2.cvtColor(undistorted_img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+
     if ret:
-        objpoints.append(objp)
-        # 加入亚像素优化的话 对于这种标定板特别小的情况 会出现严重的偏移 
-        # corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        imgpoints.append(corners)
-        
-        # 可视化角点检测结果
-        cv2.drawChessboardCorners(undistorted_img, chessboard_size, corners, ret)
-        # cv2.drawChessboardCorners(undistorted_img, chessboard_size, corners2, ret)
-        # cv2.namedWindow('Undistorted Chessboard Corners', cv2.WINDOW_FREERATIO)
-        # cv2.imshow('Undistorted Chessboard Corners', undistorted_img)
-        # cv2.imwrite("findChessboardCornenr2.jpg", undistorted_img)
-        # cv2.waitKey(500)
+        # Refine corner locations for better accuracy
+        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        imgpoints.append(corners2)
+
+        # Visualize detected corners
+        cv2.drawChessboardCorners(img, chessboard_size, corners2, ret)
+        # Uncomment the following lines if you wish to display the image with corners
+        # cv2.imshow('Detected Corners', img)
+        # cv2.waitKey(500)  # Display for 500 ms
+        print(f"Image {idx + 1}: Chessboard corners detected and added.")
+    else:
+        print(f"Image {idx + 1}: Chessboard corners not detected. Skipping this image.")
+        objpoints.pop()  # Remove the last appended objp as it's not matched
+        continue
 
 cv2.destroyAllWindows()
 
-# 确保有足够的数据点
+# Ensure Enough Data Points
 if len(objpoints) == 0 or len(imgpoints) == 0:
-    print("没有足够的有效数据进行外参计算，请检查输入！")
+    print("Insufficient valid data for calibration. Please check the inputs!")
     exit()
 
-
-# 使用 solvePnP 计算所有外参矩阵
+# Compute Extrinsic Parameters for Each Image
 extrinsics = []
 for i in range(len(objpoints)):
     ret, rvec, tvec = cv2.solvePnP(
         objpoints[i], imgpoints[i], camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE
     )
     if ret:
-        R, _ = cv2.Rodrigues(rvec)  # 旋转向量转换为旋转矩阵
+        R, _ = cv2.Rodrigues(rvec)  # Convert rotation vector to rotation matrix
         extrinsic_matrix = np.hstack((R, tvec))
         extrinsics.append(extrinsic_matrix.tolist())
-        print(f"图像 {i + 1} 的外参矩阵（3x4）：\n", extrinsic_matrix)
+        print(f"Image {i + 1} Extrinsic Matrix (3x4):\n", extrinsic_matrix)
     else:
-        print(f"图像 {i + 1} 的 solvePnP 计算失败！")
-        extrinsics.append(None)  # 标记失败
+        print(f"Image {i + 1}: solvePnP failed!")
+        extrinsics.append(None)  # Mark failure
 
-
-# 计算每个外参矩阵对应的平均投影误差
+# Compute Reprojection Errors Using Corresponding Extrinsic Parameters
 errors = []
 for i, extrinsic in enumerate(extrinsics):
     if extrinsic is None:
-        errors.append(float('inf'))  # 失败的情况
+        errors.append(float('inf'))  # Failure case
         continue
 
-    # 提取旋转矩阵和平移向量
+    # Extract Rotation Matrix and Translation Vector
     R = np.array(extrinsic)[:, :3]
     tvec = np.array(extrinsic)[:, 3]
 
-    # 计算所有点的平均投影误差
-    total_error = 0
-    total_points = 0
-    for j in range(len(objpoints)):
-        projected_points, _ = cv2.projectPoints(objpoints[j], cv2.Rodrigues(R)[0], tvec, camera_matrix, dist_coeffs)
-        error = cv2.norm(imgpoints[j], projected_points, cv2.NORM_L2) / len(projected_points)
-        total_error += error
-        total_points += 1
+    # Convert Rotation Matrix back to Rotation Vector for projectPoints
+    rvec, _ = cv2.Rodrigues(R)
 
-    avg_error = total_error / total_points
-    errors.append(avg_error)
-    print(f"图像 {i + 1} 的平均投影误差: {avg_error:.6f} 像素")
+    # Project the 3D object points of the current image using its extrinsic parameters
+    projected_points, _ = cv2.projectPoints(objpoints[i], rvec, tvec, camera_matrix, dist_coeffs)
 
-# 找出误差最小的外参矩阵
-min_error_idx = np.argmin(errors)
-print(f"\n误差最小的外参矩阵为图像 {min_error_idx + 1}，误差为 {errors[min_error_idx]:.6f} 像素")
+    # Compute the reprojection error between the detected 2D points and the projected 3D points
+    error = cv2.norm(imgpoints[i], projected_points, cv2.NORM_L2) / len(projected_points)
+    errors.append(error)
+    print(f"Image {i + 1} Average Reprojection Error: {error:.6f} pixels")
 
-# 保存结果
+# Identify the Extrinsic Matrix with the Minimum Reprojection Error
+valid_errors = [error for error in errors if np.isfinite(error)]
+if valid_errors:
+    min_error_idx = np.argmin(valid_errors)
+    print(f"\nExtrinsic Matrix with Minimum Error: Image {min_error_idx + 1}, Error = {valid_errors[min_error_idx]:.6f} pixels")
+else:
+    print("\nNo valid reprojection errors found.")
+    min_error_idx = None
+
+# Save Results to JSON
 camera_data = {
     "camera_matrix": camera_matrix.tolist(),
     "dist_coeffs": dist_coeffs.tolist(),
     "extrinsics": extrinsics,
     "reprojection_errors": errors,
-    "best_extrinsic": extrinsics[min_error_idx],
-    "best_error": errors[min_error_idx]
+    "best_extrinsic": extrinsics[min_error_idx] if min_error_idx is not None else None,
+    "best_error": errors[min_error_idx] if min_error_idx is not None else None
 }
 
 output_file = "camera_extrinsics_all_error.json"
 with open(output_file, "w") as f:
     json.dump(camera_data, f, indent=4)
-print(f"外参矩阵及平均投影误差结果已保存到文件：{output_file}")
+print(f"Extrinsic matrices and reprojection errors saved to file: {output_file}")
