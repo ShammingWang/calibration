@@ -3,7 +3,7 @@ import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 
 # Load the sorted data from the file
-file_path = "./mocap_points/20250109_103253.txt"  # Replace with your file path if necessary
+file_path = "./results/left/mocap_points/20250103_102810.txt"  # Replace with your file path if necessary
 sorted_data = pd.read_csv(file_path, sep=" ", header=None, names=["x", "y", "z"])
 
 # Create a 3D plot
