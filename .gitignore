@@ -1,5 +1,6 @@
 .DS_Store
 mapping/*.csv
 mapping/*.mp4
-mapping/*.json
+# mapping/*.json
 tempCodeRunnerFile.py
+mapping/output_frames/

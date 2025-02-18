@@ -41,7 +41,8 @@ def undistort_images(input_folder, json_file, output_folder):
             
             # 裁剪图像
             x, y, w, h = roi
-            dst = dst[y:y+h, x:x+w]
+            # dst = dst[y:y+h, x:x+w]
+            cv.rectangle(dst, (x, y), (x + w, y + h), (0, 0, 255), 2, 8, 0)
             
             # 保存矫正后的图像
             output_path = os.path.join(output_folder, fname)

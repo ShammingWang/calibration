@@ -90,13 +90,25 @@ def main(json_file_path):
 
         # Read 3D object points from mocap file
         objp = []
+        cnt = 0
+        tmp_list = []
         with open(mocap_file, 'r') as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
                 x, y, z = map(float, line.split())
-                objp.append([x, y, z])
+                cnt += 1
+                tmp_list.append([x, y, z])
+                if cnt % 8 ==0:
+                    cnt = 0
+                    tmp_list.reverse()
+                    objp = objp + tmp_list
+                    tmp_list = []
+                # objp.append([x, y, z])
+            # if len(tmp_list) == 8:
+            #     tmp_list.reverse()
+            #     objp = objp + tmp_list
         objp = np.array(objp, dtype=np.float32)
 
         expected_points = chessboard_size[0] * chessboard_size[1]

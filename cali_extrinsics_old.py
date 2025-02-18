@@ -50,13 +50,22 @@ for image_file in image_files:
 
     # 读取物理坐标
     objp = []
+    cnt = 0
+    tmp_list = []
     with open(mocap_file, 'r') as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
             x, y, z = map(float, line.split())
-            objp.append([x, y, z])
+            cnt += 1
+            tmp_list.append([x, y, z])
+            if cnt % 8 ==0:
+                cnt = 0
+                objp = objp + tmp_list
+                tmp_list = []
+                
+            # objp.append([x, y, z])
     objp = np.array(objp, dtype=np.float32)
 
     # 加载图像并去畸变
