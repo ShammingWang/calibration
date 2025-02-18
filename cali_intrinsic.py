@@ -9,7 +9,7 @@ import json
 chessboard_rows = 6  # Number of inner corners in rows
 chessboard_cols = 8  # Number of inner corners in columns
 chessboard_length_mm = 60
-images_path = "./calibration_images2/*.jpg"
+images_path = "./calibration_intrinsic_images/*.jpg"
 
 # Termination criteria for corner refinement
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -25,6 +25,15 @@ imgpoints = []  # 2d points in image plane
 
 # Load all images with .jpg extension
 images = glob.glob(images_path)
+
+if len(images) <= 0:
+    print("there is no image in the folder")
+    exit(0)
+
+gray = cv.cvtColor(cv.imread(images[0]), cv.COLOR_BGR2GRAY)
+
+if not os.path.exists("ChessboardCorners"):
+    os.mkdir("ChessboardCorners")
 
 for fname in images:
     img = cv.imread(fname)
@@ -44,6 +53,9 @@ for fname in images:
         cv.drawChessboardCorners(img, (chessboard_cols, chessboard_rows), corners2, ret)
         # cv.imshow('Chessboard Corners', img)
         # cv.waitKey(500)
+        base_name = os.path.basename(fname)
+        dst_fame = os.path.join("ChessboardCorners", base_name)
+        cv.imwrite(dst_fame, img)
 
 cv.destroyAllWindows()
 
@@ -52,7 +64,7 @@ cv.destroyAllWindows()
 # opencv function needs (x,y) format
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-def save_calibration_to_json(ret, mtx, dist, rvecs, tvecs, output_file="camera_calibration.json"):
+def save_calibration_to_json(ret, mtx, dist, rvecs, tvecs, output_file="intrinsic.json"):
     """
     将相机标定结果保存到 JSON 文件。
 
@@ -62,7 +74,7 @@ def save_calibration_to_json(ret, mtx, dist, rvecs, tvecs, output_file="camera_c
         dist (numpy.ndarray): 畸变系数。
         rvecs (list): 旋转向量的列表。
         tvecs (list): 平移向量的列表。
-        output_file (str): 保存 JSON 文件的路径，默认是 "camera_calibration.json"。
+        output_file (str): 保存 JSON 文件的路径，默认是 "intrinsic.json"。
 
     返回:
         bool: 保存成功返回 True，否则返回 False。
@@ -90,6 +102,9 @@ def save_calibration_to_json(ret, mtx, dist, rvecs, tvecs, output_file="camera_c
     
 save_calibration_to_json(ret, mtx, dist, rvecs, tvecs, output_file="intrinsic.json")
 
+if not os.path.exists("undistorted_images"):
+    os.mkdir("undistorted_images")
+
 for fname in images:
     img = cv.imread(fname)
     h,  w = img.shape[:2]
@@ -100,5 +115,5 @@ for fname in images:
     x, y, w, h = roi
     dst = dst[y:y+h, x:x+w]
     base_name = os.path.basename(fname)
-    dst_fame = os.path.join("undistorted_images2", base_name)
+    dst_fame = os.path.join("undistorted_images", base_name)
     cv.imwrite(dst_fame, dst)
