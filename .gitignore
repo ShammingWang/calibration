@@ -1,4 +1,5 @@
 .DS_Store
+backup/*
 mapping/*.csv
 mapping/*.mp4
 # mapping/*.json

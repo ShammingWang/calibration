@@ -1,130 +1,142 @@
 
-# Camera Calibration Tool
+# Calibration Toolkit
 
-This project provides a comprehensive tool for camera calibration, including both intrinsic and extrinsic parameter calculations. The main script, `main_cali_all.py`, automates the calibration process and generates two output files: one for intrinsic parameters and another for extrinsic parameters.
+This repository contains small scripts for camera calibration and for inspecting/editing mocap point files used during extrinsic calibration.
 
-## Features
+## Folder structure (common)
 
-- **Intrinsic Calibration**: Computes the camera matrix and distortion coefficients using chessboard images.
-- **Extrinsic Calibration**: Computes the rotation and translation matrices for each image using corresponding 3D points.
-- **Output Files**:
-  - `intrinsic.json`: Contains the intrinsic camera parameters.
-  - `extrinsics.json`: Contains the extrinsic parameters and reprojection errors.
-
-## Input Requirements
-
-The project requires a unified folder structure for input data. The folder should be organized as follows:
+Many scripts assume a “dataset root” folder that contains at least:
 
 ```
-CalibrationInputFolder/
-├── intrinsic_images/
-│   ├── image1.jpg
-│   ├── image2.jpg
+<dataset_root>/
+├── mocap_points/
+│   ├── <name>.txt
 │   └── ...
-├── extrinsic_images/
-│   ├── image1.jpg
-│   ├── image2.jpg
-│   └── ...
-└── mocap_points/
-    ├── image1.txt
-    ├── image2.txt
-    └── ...
+└── extrinsic_images/
+      ├── <name>.jpg (or .png/.jpeg/...)
+      └── ...
 ```
 
-### Folder Details
+Notes:
 
-1. **`CalibrationInputFolder/intrinsic_images/`**:
-   - Contains images in `.jpg` format.
-   - These images are used for intrinsic calibration.
-   - Ensure the images contain a visible chessboard pattern.
+- Each `mocap_points/<name>.txt` is whitespace-separated `x y z` per line.
+- Image matching is done by filename stem (`<name>`).
 
-2. **`CalibrationInputFolder/extrinsic_images/`**:
-   - Contains images in `.jpg` format.
-   - These images are used for extrinsic calibration.
-   - Ensure the images correspond to the 3D points provided in the `mocap_points` folder.
+## Live mocap viewer/editor
 
-3. **`CalibrationInputFolder/mocap_points/`**:
-   - Contains `.txt` files with the same names as the images in `extrinsic_images/`.
-   - Each `.txt` file contains 3D coordinates of points in space, with one point per line.
-   - Each line should have three floating-point numbers separated by spaces, representing the X, Y, and Z coordinates of a point.
+Script: `plot_mocap_points.py`
 
-### Example `mocap_points` File (`image1.txt`):
-```
-0.0 0.0 0.0
-60.0 0.0 0.0
-120.0 0.0 0.0
-...
+Purpose:
+
+- Live 3D viewer for a mocap `.txt` file (points are labeled with their row index).
+- Auto-refreshes when the currently viewed file changes on disk.
+- Lets you navigate adjacent numbered files and apply in-place transforms.
+- Shows a preview of the matching image from `extrinsic_images/`.
+
+How to run:
+
+```cmd
+python plot_mocap_points.py
 ```
 
-## How to Run
+Initial configuration (top of file):
 
-1. Ensure the input folder is structured as described above.
-2. Place the input folder (e.g., `CalibrationInputFolder`) in the project directory.
-3. Run the main script:
-   ```bash
-   python main_cali_all.py
-   ```
-4. The script will:
-   - Compute intrinsic parameters using images from `intrinsic_images/`.
-   - Compute extrinsic parameters using images from `extrinsic_images/` and corresponding 3D points from `mocap_points/`.
-   - Save the results to `CalibrationInputFolder/intrinsic.json` and `CalibrationInputFolder/extrinsics.json`.
+- `file_path`: initial mocap file to open.
+- `adjust_sector_size`: the “sector size” used by the reverse operation (default `8`).
+- `sort_size`: `(rows, cols)` grid size used for the flip logic (default `(6, 8)`).
 
-## Output Files
+UI controls:
 
-1. **`intrinsic.json`**:
-   - Contains the camera matrix and distortion coefficients.
-   - Example:
-     ```json
-     {
-         "camera_matrix": [[fx, 0, cx], [0, fy, cy], [0, 0, 1]],
-         "dist_coeffs": [k1, k2, p1, p2, k3]
-     }
-     ```
+- `Prev` / `Next`: switches `_N` index in the filename (e.g., `Foo_4.txt` → `Foo_5.txt`).
+- `Reverse sectors (...)`: reverses the order within each sector (every `adjust_sector_size` lines), writing back to the same file.
+- `Sort file`: sorts points and writes back to the same file.
+- `dataset root` + `Browse`: change to another dataset folder containing `mocap_points/` (+ `extrinsic_images/` for preview).
 
-2. **`extrinsics.json`**:
-   - Contains the extrinsic parameters (rotation and translation matrices) for each image.
-   - Includes reprojection errors for quality assessment.
-   - Example:
-     ```json
-     {
-         "camera_matrix": [[fx, 0, cx], [0, fy, cy], [0, 0, 1]],
-         "dist_coeffs": [k1, k2, p1, p2, k3],
-         "extrinsics": [
-             [[r11, r12, r13, t1], [r21, r22, r23, t2], [r31, r32, r33, t3]],
-             ...
-         ],
-         "reprojection_errors": [0.5, 0.6, ...],
-         "best_extrinsic": [[r11, r12, r13, t1], [r21, r22, r23, t2], [r31, r32, r33, t3]],
-         "best_error": 0.5
-     }
-     ```
+Sorting controls (right panel):
 
-## Notes
+- `perspective`: `auto/left/right/center`. `auto` infers from folder names (e.g., `left`, `right`, `middle`, `center`).
+- `x_flip` / `fb_flip`: optional grid flips after sorting.
+   - `x_flip` = reverse each row (left/right inversion).
+   - `fb_flip` = reverse row order (front/back inversion).
+- `rows` / `cols`: grid dimensions used for flips.
+- `u-axis` / `v-axis`: optional axis override for sorting (`none`, `x`, `-x`, `y`, `-y`, `z`, `-z`).
+   - Sorting rule: sort by `v` descending (top→down), then by `u` ascending (left→right).
 
-- Ensure that the chessboard pattern in the images is clearly visible and consistent across all images.
-- At least three images are required for both intrinsic and extrinsic calibration.
-- The script will automatically create subfolders for intermediate results, such as undistorted images and visualized chessboard corners.
+Important:
 
-## Example Input Folder Structure
+- `Reverse sectors` and `Sort file` modify the viewed `.txt` in-place. Keep a copy if you need to preserve the original.
+- `Browse` uses `tkinter`. If it’s unavailable, paste the dataset path into the `dataset root` box and press Enter.
 
-An example input folder structure is provided in `CalibrationInputFolder`. Use this as a reference for organizing your data.
+## Camera calibration (intrinsic + extrinsic)
+
+Script: `main_cali_all.py`
+
+What it does:
+
+- Intrinsic calibration using chessboard images (OpenCV) and writes `intrinsic.json`.
+- Extrinsic calibration using `solvePnP` per image and writes `extrinsics.json` (also includes reprojection errors and `best_extrinsic`).
+
+Before running:
+
+- Edit the constants near the top of `main_cali_all.py`:
+   - `chessboard_rows`, `chessboard_cols`, `chessboard_length_mm`
+   - `input_folder` (your dataset root)
+
+Expected inputs (per current code):
+
+- Images: `<input_folder>/extrinsic_images/*.jpg`
+- Mocap points: `<input_folder>/mocap_points/sorted/<image_stem>.txt`
+
+Run:
+
+```cmd
+python main_cali_all.py
+```
+
+Outputs:
+
+- `<input_folder>/intrinsic.json`
+- `<input_folder>/extrinsics.json`
+- `<input_folder>/ChessboardCorners/` (if enabled)
+- `<input_folder>/undistorted_images/`
+
+## Capture images from a webcam
+
+Script: `cap.py`
+
+- Opens webcam index `0`, shows a live view.
+- Press `Q` to save a frame into `calibration_images/`.
+- Press `Esc` to quit.
+
+## Rotate images in-place
+
+Script: `rotate_images.py`
+
+- Rotates all `.jpg` images in a configured folder (in-place).
+- Edit `folder_path` and `degrees_to_rotate` in the script.
+
+## 3D→2D projection demo (mocap → video)
+
+Script: `map_mocap_points.py`
+
+- Demonstration code that:
+   - parses an OptiTrack CSV,
+   - maps markers to a Human3.6M-like ordering,
+   - loads `intrinsic.json` + `extrinsics.json`,
+   - projects 3D points to 2D using OpenCV and overlays them on a video.
+
+It is a demo script: edit the file paths in `__main__` to your local data.
 
 ## Dependencies
 
-- Python 3.x
-- OpenCV
-- NumPy
-- Matplotlib
+Minimum commonly used packages:
 
-Install the required dependencies using:
-```bash
-pip install opencv-python numpy matplotlib
+```cmd
+pip install numpy pandas matplotlib opencv-python
 ```
 
-## License
+Optional (only for `rotate_images.py`):
 
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-## Contact
-
-For questions or issues, please contact the project maintainer.
+```cmd
+pip install pillow
+```

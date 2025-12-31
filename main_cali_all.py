@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 chessboard_rows = 6  # Number of inner corners in rows
 chessboard_cols = 8  # Number of inner corners in columns
 chessboard_length_mm = 60
-input_folder="./CalibrationInputFolder"
-intrinsic_images_path = os.path.join(input_folder, "intrinsic_images/*.jpg")
+input_folder="./data/TopRight/"
+intrinsic_images_path = os.path.join(input_folder, "extrinsic_images/*.jpg")
 intrinsic_path = os.path.join(input_folder, "intrinsic.json")
 extrinsic_images_path = os.path.join(input_folder, "extrinsic_images/*.jpg")
 
@@ -165,7 +165,8 @@ def calibrate_extrinsics(images_path=extrinsic_images_path, intrinsic_path=intri
 
     for idx, image_file in enumerate(image_files):
         base_name = os.path.basename(image_file).split('.')[0]
-        mocap_file = os.path.join("mocap_points", f"{base_name}.txt")
+        
+        mocap_file = os.path.join(input_folder, f"mocap_points/sorted/{base_name}.txt")
 
         if not os.path.exists(mocap_file):
             print(f"Missing physical coordinates file: {mocap_file}. Skipping this image!")
